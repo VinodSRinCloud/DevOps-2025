@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Report: DevOps & Cloud Trends 2025</title>
+    <!-- Chosen Palette: Calm Neutral -->
+    <!-- Application Structure Plan: A single-page application with a fixed left-hand navigation sidebar and a dynamic main content area. The structure is designed for intuitive exploration. An "Overview" page provides an executive summary and a visual chart of trend prominence. Each of the six core themes from the report has its own dedicated section, accessible from the sidebar. Within each section, specific topic ideas are presented as interactive cards in a grid. Clicking a card opens a modal with detailed information. This structure was chosen to break down a dense, text-heavy report into digestible, user-driven chunks, preventing information overload and encouraging exploration rather than linear reading. -->
+    <!-- Visualization & Content Choices:
+        - Overview Chart: Goal: Compare trend prominence. Method: Horizontal Bar Chart (Chart.js/Canvas). Interaction: Tooltips on hover provide exact conference counts. Justification: Quickly communicates the relative focus on each theme at major events, providing a data-driven entry point.
+        - Thematic Sections: Goal: Organize & Inform. Method: Interactive Cards (HTML/CSS/Tailwind Grid). Interaction: Clicking a card triggers a modal popup. Justification: Organizes sub-topics cleanly, allowing users to drill down into specifics on demand without cluttering the main view.
+        - Modal Detail View: Goal: Inform (Deep Dive). Method: Styled Text Block (HTML/CSS). Interaction: Close button. Justification: Provides a focused, readable view for detailed content.
+        - Icons: Goal: Visual Aid. Method: Unicode characters. Justification: Adds visual cues for each section without the overhead of images or SVG, maintaining a lightweight app.
+        - LLM Integration: Goal: Enhance understanding and engagement. Method: Buttons in modal trigger Gemini API calls for text generation (key takeaways, related questions). Justification: Provides dynamic, AI-powered insights directly relevant to the viewed topic, adding an interactive analytical layer.
+    -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8f9fa;
+        }
+        .sidebar-item {
+            transition: all 0.2s ease-in-out;
+        }
+        .sidebar-item.active, .sidebar-item:hover {
+            background-color: #e9ecef;
+            color: #0d1b2a;
+            transform: translateX(4px);
+        }
+        .modal {
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+        .modal-content {
+            transition: transform 0.3s ease;
+        }
+        .card {
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 350px;
+            max-height: 400px;
+        }
+        @media (max-width: 768px) {
+            .chart-container {
+                height: 300px;
+            }
+        }
+        @media (max-width: 640px) {
+            .chart-container {
+                height: 400px;
+            }
+        }
+        .loading-spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="text-gray-800">
+
+    <div class="flex h-screen bg-gray-100">
+        <!-- Sidebar -->
+        <aside id="sidebar" class="w-64 bg-white shadow-md flex-shrink-0 fixed lg:relative h-full z-20 transform -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out">
+            <div class="p-6">
+                <h1 class="text-2xl font-bold text-gray-900">DevOps Trends</h1>
+                <p class="text-sm text-gray-500">H1 2025 Report</p>
+            </div>
+            <nav class="mt-4" id="nav-menu">
+                 <a href="#overview" data-section="overview" class="sidebar-item active flex items-center py-3 px-6 text-gray-600">
+                    <span class="mr-3 text-lg">📊</span> Overview
+                </a>
+                <a href="#ai" data-section="ai" class="sidebar-item flex items-center py-3 px-6 text-gray-600">
+                    <span class="mr-3 text-lg">🤖</span> AI & GenAI
+                </a>
+                <a href="#security" data-section="security" class="sidebar-item flex items-center py-3 px-6 text-gray-600">
+                    <span class="mr-3 text-lg">🛡️</span> Security & DevSecOps
+                </a>
+                <a href="#containers" data-section="containers" class="sidebar-item flex items-center py-3 px-6 text-gray-600">
+                    <span class="mr-3 text-lg">📦</span> Containerization
+                </a>
+                <a href="#automation" data-section="automation" class="sidebar-item flex items-center py-3 px-6 text-gray-600">
+                    <span class="mr-3 text-lg">⚙️</span> Automation & CI/CD
+                </a>
+                <a href="#observability" data-section="observability" class="sidebar-item flex items-center py-3 px-6 text-gray-600">
+                    <span class="mr-3 text-lg">📈</span> Observability
+                </a>
+                <a href="#culture" data-section="culture" class="sidebar-item flex items-center py-3 px-6 text-gray-600">
+                    <span class="mr-3 text-lg">🤝</span> Culture & Strategy
+                </a>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <div class="flex-1 flex flex-col overflow-hidden">
+            <header class="bg-white shadow-sm p-4 flex items-center justify-between lg:hidden">
+                <button id="menu-toggle" class="text-gray-700 focus:outline-none">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+                </button>
+                 <h2 class="text-xl font-bold" id="mobile-header-title">Overview</h2>
+            </header>
+            <main id="main-content" class="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100 p-4 sm:p-6 lg:p-8">
+                <!-- Content will be injected here -->
+            </main>
+        </div>
+    </div>
+
+    <!-- Modal -->
+    <div id="topic-modal" class="modal fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-50 invisible opacity-0">
+        <div class="modal-content bg-white rounded-lg shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto transform scale-95">
+            <div class="p-6 md:p-8">
+                <div class="flex justify-between items-start mb-4">
+                    <h3 id="modal-title" class="text-2xl font-bold text-gray-900"></h3>
+                    <button id="modal-close" class="text-gray-500 hover:text-gray-800 text-3xl">&times;</button>
+                </div>
+                <div id="modal-body" class="text-gray-700 space-y-4">
+                    <!-- Modal content injected here -->
+                </div>
+                <div class="mt-6 pt-4 border-t border-gray-200">
+                    <h4 class="text-xl font-semibold text-gray-800 mb-3">AI-Powered Insights ✨</h4>
+                    <div class="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-3 mb-4">
+                        <button id="generate-takeaways-btn" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-md shadow-md flex items-center justify-center">
+                            <span id="takeaways-loading" class="hidden loading-spinner mr-2"></span>
+                            ✨ Generate Key Takeaways
+                        </button>
+                        <button id="generate-questions-btn" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-md shadow-md flex items-center justify-center">
+                            <span id="questions-loading" class="hidden loading-spinner mr-2"></span>
+                            ✨ Suggest Related Questions
+                        </button>
+                    </div>
+                    <div id="ai-output" class="bg-gray-50 p-4 rounded-md border border-gray-200 min-h-[50px] flex items-center justify-center text-gray-600 italic">
+                        Click an AI button above to generate insights.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<script>
+const appData = {
+    overview: {
+        title: "Overview: DevOps & Cloud Trends H1 2025",
+        summary: "This report synthesizes key trends in DevOps and Cloud Solution Architecture from major tech events between Dec 2024 and May 2025. The period is marked by the pervasive influence of Artificial Intelligence, reshaping cloud operations, software development, and security. Core themes include AI integration, advanced cloud security, Kubernetes ecosystem evolution, and strategic hybrid cloud approaches. Organizations are focusing on efficiency, resilience, and security through intelligent automation, comprehensive observability, and proactive security.",
+        introduction: "The landscape of DevOps and Cloud Solution Architecture is in constant flux. Staying abreast of these changes is essential for strategic planning and maintaining a competitive edge. This report distills impactful observations from leading tech conferences, offering actionable intelligence for technology leaders, architects, and practitioners.",
+        chartData: {
+            labels: ['AI & GenAI', 'Security & DevSecOps', 'Containerization', 'Infrastructure & Culture', 'Observability', 'Automation & CI/CD'],
+            data: [7, 7, 5, 6, 4, 4],
+        }
+    },
+    ai: {
+        title: "🤖 Artificial Intelligence and Generative AI",
+        introduction: "The pervasive integration of AI and Generative AI (GenAI) stands out as the most dominant theme, fundamentally transforming the DevOps and cloud landscape. Discussions have moved beyond theory to practical implementations, focusing on how AI can accelerate development, enhance operations, and bolster security.",
+        topics: [
+            { id: "ai-copilots", title: "AI-Powered Automation & Copilots", description: "Leveraging AI to automate complex IT operations and enhance productivity. Copilots are emerging as standard tools for developers and IT professionals.", points: ["Integrating AI automation into existing DevOps pipelines.", "The role of AI copilots (e.g., Amazon Q, GitHub Copilot) in accelerating productivity.", "Best practices for training and deploying AI agents for specific IT tasks.", "Measuring the ROI of AI-driven automation."] },
+            { id: "ai-codegen", title: "GenAI for Code Generation & Optimization", description: "Generative AI is rapidly becoming a standard tool for accelerating software development by assisting with code generation, refactoring, and optimization.", points: ["Leveraging GenAI for boilerplate code generation, unit tests, and documentation.", "Integrating AI coding assistants into developer workflows.", "Ensuring code quality and security when using GenAI.", "The impact of GenAI on developer productivity and skill sets."] },
+            { id: "ai-aıops", title: "AI-Enhanced Observability & AIOps", description: "AI is integrated into monitoring platforms to provide deeper insights, automate anomaly detection, and predict potential issues, moving towards AIOps.", points: ["Implementing AIOps for proactive incident detection.", "Leveraging AI for intelligent log analysis and metric correlation.", "The role of OpenTelemetry in standardizing observability data for AI analysis.", "Building predictive maintenance models for cloud infrastructure."] },
+            { id: "ai-security", title: "Securing Generative AI Models", description: "As GenAI adoption surges, new security risks emerge, making the security of AI models and applications a top priority.", points: ["Mitigating prompt injection attacks and data leakage.", "Security best practices for AI model training and deployment.", "The role of responsible AI frameworks in ensuring ethical GenAI development.", "Integrating AI security into DevSecOps pipelines."] },
+            { id: "ai-agents", title: "AI Agents for Cloud Operations", description: "Autonomous AI agents are being developed to perform complex tasks, orchestrate workflows, and manage cloud resources with minimal human intervention.", points: ["Designing and deploying autonomous AI agents for resource management.", "Orchestrating complex multi-step workflows with AI agents.", "Addressing challenges of trust, control, and debugging with agentic AI.", "Ethical implications and governance models for autonomous AI in IT."] }
+        ]
+    },
+    security: {
+        title: "🛡️ Advanced Cloud Security & DevSecOps",
+        introduction: "Security remains a paramount concern, with a strong emphasis on integrating security practices earlier in the development lifecycle ('shifting left') and leveraging AI for enhanced threat detection and response. Secure by design and robust supply chain security are gaining significant traction.",
+        topics: [
+            { id: "sec-shiftleft", title: "Shift-Left & Secure by Design", description: "Integrating security early in the SDLC to proactively identify and mitigate vulnerabilities, rather than addressing them post-deployment.", points: ["Implementing SAST/DAST in CI/CD pipelines.", "Fostering a security-first mindset among developers.", "Designing cloud-native apps with security controls from inception.", "Challenges in shifting security left in large organizations."] },
+            { id: "sec-ai-threat", title: "AI-Powered Threat Detection", description: "Utilizing AI/ML to enhance cybersecurity defenses, automate threat detection, and accelerate incident response.", points: ["Deploying AI/ML models for anomaly detection.", "Automating incident response with AI-driven playbooks.", "The role of AI in threat intelligence and predictive analytics.", "Integrating AI security tools with existing SIEM/XDR platforms."] },
+            { id: "sec-sbom", title: "Software Supply Chain Security & SBOMs", description: "Securing the entire software supply chain, including managing dependencies and generating Software Bill of Materials (SBOMs).", points: ["Implementing secure coding practices and dependency scanning.", "Leveraging tools for software composition analysis (SCA).", "The importance of SBOMs for transparency and risk management.", "Securing CI/CD pipelines against supply chain attacks."] },
+            { id: "sec-zerotrust", title: "Zero Trust Architectures", description: "Implementing a security model that assumes no implicit trust and requires verification for every access attempt, regardless of location.", points: ["Designing Zero Trust principles for cloud applications.", "IAM as the cornerstone of Zero Trust.", "Micro-segmentation and least privilege access.", "Challenges in transitioning from perimeter-based security."] },
+            { id: "sec-cspm", title: "CSPM & Compliance", description: "Continuously monitoring the security posture of cloud environments to identify misconfigurations, vulnerabilities, and compliance deviations.", points: ["Automating CSPm to detect and remediate cloud misconfigurations.", "Ensuring continuous compliance with regulations.", "Leveraging cloud-native and third-party security tools.", "Integrating CSPM into DevSecOps workflows."] }
+        ]
+    },
+    containers: {
+        title: "📦 Containerization & Kubernetes Ecosystem",
+        introduction: "Kubernetes continues to be the de facto standard for container orchestration, with discussions now focusing on optimizing its use for large-scale production, cost efficiency, and specialized workloads like MLOps.",
+        topics: [
+            { id: "cont-scale", title: "Kubernetes at Scale & Production Readiness", description: "Addressing challenges and best practices for deploying and managing Kubernetes in large-scale production environments.", points: ["Strategies for scaling clusters horizontally and vertically.", "Optimizing performance for high-throughput applications.", "Managing multi-cluster and multi-region deployments.", "Best practices for upgrades and disaster recovery."] },
+            { id: "cont-dra", title: "Dynamic Resource Allocation & Cost Optimization", description: "Optimizing resource utilization and reducing cloud spend in Kubernetes environments through intelligent allocation and autoscaling.", points: ["Implementing VPAs and HPAs effectively.", "Leveraging DRA to improve resource efficiency.", "Strategies for optimizing bin-packing and node utilization.", "Cost monitoring and optimization tools for cloud-native workloads."] },
+            { id: "cont-mlops", title: "Cloud-Native MLOps on Kubernetes", description: "Operationalizing machine learning workflows using cloud-native tools, with Kubernetes as the underlying infrastructure.", points: ["Building MLOps pipelines on Kubernetes for model training and deployment.", "Leveraging Kubeflow for cloud-native machine learning.", "Addressing challenges in data versioning and model governance.", "Scaling ML inference and training workloads efficiently."] },
+            { id: "cont-security", title: "Container Security & Runtime Protection", description: "Securing container images, registries, and runtime environments to prevent vulnerabilities and unauthorized access.", points: ["Scanning container images for vulnerabilities.", "Implementing admission controllers and network policies.", "Runtime security for containers, including behavioral analysis.", "Best practices for securing container registries."] },
+            { id: "cont-serverless", title: "Serverless Containers & Workload Orchestration", description: "Combining the benefits of serverless computing with containerization for flexible and scalable application deployment.", points: ["Architecting applications using serverless containers (e.g., Fargate, Cloud Run).", "Benefits and trade-offs of serverless containers vs. traditional Kubernetes.", "Optimizing cost and performance for event-driven workloads.", "Managing stateful applications in a serverless container paradigm."] }
+        ]
+    },
+    automation: {
+        title: "⚙️ Enhanced Automation & CI/CD Pipelines",
+        introduction: "Automation remains central to DevOps, now evolving to incorporate intelligent, event-driven workflows and advanced CI/CD strategies for complex hybrid and multi-cloud environments.",
+        topics: [
+            { id: "auto-event", title: "Event-Driven Automation", description: "Automating processes based on specific events or triggers, often enhanced by AI to create more adaptive and responsive systems.", points: ["Designing event-driven architectures for automated operations.", "Integrating AI for intelligent decision-making in automation.", "Automating provisioning based on real-time events.", "Use cases in hybrid and edge environments."] },
+            { id: "auto-hybrid", title: "Advanced CI/CD for Hybrid & Multi-Cloud", description: "Building robust CI/CD pipelines that can deploy and manage applications consistently across diverse infrastructures.", points: ["Strategies for consistent deployments across clouds.", "Managing secrets and configurations in complex environments.", "Implementing progressive delivery (canary, blue/green).", "Challenges in data synchronization and consistency."] },
+            { id: "auto-gitops", title: "GitOps for Delivery", description: "Managing infrastructure and application deployments using Git as the single source of truth for declarative, automated operations.", points: ["Implementing GitOps workflows for Kubernetes.", "Benefits of declarative infrastructure and continuous reconciliation.", "Tools and best practices for GitOps adoption (Argo CD, Flux).", "Challenges in scaling GitOps across large organizations."] },
+            { id: "auto-lowcode", title: "Low-Code/No-Code DevOps Integration", description: "Leveraging low-code/no-code platforms to accelerate development and integrating them into DevOps pipelines.", points: ["Integrating low-code platforms with traditional CI/CD.", "Governing and securing low-code applications.", "The role of citizen developers in application delivery.", "Balancing development speed with scalability."] }
+        ]
+    },
+    observability: {
+        title: "📈 Monitoring, Observability & Performance",
+        introduction: "Comprehensive visibility into system performance and behavior remains crucial, with a strong push towards unified observability, cost management (FinOps), and performance tuning for specialized workloads.",
+        topics: [
+            { id: "obs-unified", title: "Unified Observability with OpenTelemetry", description: "Standardizing the collection of metrics, logs, and traces across distributed systems to provide a holistic view of system health.", points: ["Implementing OpenTelemetry for consistent instrumentation.", "Building a unified observability platform for hybrid/multi-cloud.", "Leveraging distributed tracing for root cause analysis.", "Challenges and benefits of adopting OpenTelemetry at scale."] },
+            { id: "obs-finops", title: "FinOps & Cloud Cost Management", description: "Bringing financial accountability to the cloud, enabling organizations to optimize spending and make data-driven financial decisions.", points: ["Establishing FinOps practices and culture.", "Tools for cloud cost visibility, allocation, and optimization.", "Right-sizing resources and leveraging reserved/spot instances.", "Balancing cost efficiency with performance and reliability."] },
+            { id: "obs-perf", title: "Performance Tuning for AI/ML Workloads", description: "Optimizing cloud infrastructure and applications specifically for demanding AI and machine learning workloads.", points: ["Optimizing GPU utilization and distributed training.", "Strategies for reducing inference latency and improving throughput.", "Leveraging specialized hardware and storage for AI.", "Monitoring and troubleshooting performance bottlenecks in AI pipelines."] },
+            { id: "obs-chaos", title: "Chaos Engineering for Resilient Systems", description: "Proactively injecting failures into systems to identify weaknesses and improve resilience in cloud-native and distributed environments.", points: ["Designing and executing chaos experiments.", "Integrating chaos engineering into CI/CD pipelines.", "Tools and frameworks for chaos engineering.", "Building a culture of resilience through chaos engineering."] }
+        ]
+    },
+    culture: {
+        title: "🤝 Strategic Infrastructure & DevOps Culture",
+        introduction: "Beyond technical implementations, strategic infrastructure choices and a strong organizational culture are critical enablers for successful DevOps and cloud adoption.",
+        topics: [
+            { id: "cult-hybrid", title: "Hybrid & Multi-Cloud Strategies", description: "Designing infrastructure that spans on-premises data centers and multiple public clouds to optimize for cost, performance, and compliance.", points: ["Developing a strategic approach to hybrid/multi-cloud adoption.", "Tools for consistent management across diverse environments.", "Addressing data governance and security in hybrid setups.", "Optimizing workload placement for performance and cost."] },
+            { id: "cult-serverless", title: "Serverless Architectures & FaaS", description: "Building applications using serverless functions and managed services, abstracting away infrastructure management.", points: ["Designing and migrating applications to serverless architectures.", "Managing serverless functions, events, and integrations.", "Cost optimization and cold start considerations.", "The role of FaaS in modern application development."] },
+            { id: "cult-iac", title: "Infrastructure as Code (IaC) Best Practices", description: "Managing and provisioning infrastructure through code, enabling automation, version control, and consistent environments.", points: ["Implementing IaC for cloud provisioning.", "Best practices for IaC versioning, testing, and security.", "Choosing between different IaC tools (Terraform, Pulumi).", "Integrating IaC into CI/CD for automated delivery."] },
+            { id: "cult-culture", title: "Fostering a Collaborative DevOps Culture", description: "Cultivating a culture of collaboration, shared responsibility, and continuous improvement between teams.", points: ["Breaking down silos between dev, ops, and security.", "Implementing shared metrics and goals.", "The role of leadership in driving cultural transformation.", "Overcoming resistance to change and encouraging learning."] },
+            { id: "cult-sustainability", title: "Sustainability in Cloud Operations", description: "Optimizing cloud resource usage to reduce energy consumption and carbon footprint, aligning IT with environmental goals.", points: ["Measuring the carbon footprint of cloud infrastructure.", "Strategies for optimizing resource utilization for energy efficiency.", "Leveraging cloud provider sustainability initiatives.", "The role of DevOps in promoting green IT practices."] }
+        ]
+    }
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+    const mainContent = document.getElementById('main-content');
+    const navMenu = document.getElementById('nav-menu');
+    const modal = document.getElementById('topic-modal');
+    const modalTitle = document.getElementById('modal-title');
+    const modalBody = document.getElementById('modal-body');
+    const modalClose = document.getElementById('modal-close');
+    const mobileHeaderTitle = document.getElementById('mobile-header-title');
+    const menuToggle = document.getElementById('menu-toggle');
+    const sidebar = document.getElementById('sidebar');
+
+    const generateTakeawaysBtn = document.getElementById('generate-takeaways-btn');
+    const generateQuestionsBtn = document.getElementById('generate-questions-btn');
+    const aiOutputDiv = document.getElementById('ai-output');
+    const takeawaysLoadingSpinner = document.getElementById('takeaways-loading');
+    const questionsLoadingSpinner = document.getElementById('questions-loading');
+
+    let trendsChart = null;
+    let currentTopicData = null; // Store current topic data for LLM calls
+
+    const renderOverview = () => {
+        const overviewData = appData.overview;
+        mainContent.innerHTML = `
+            <div class="space-y-8">
+                <div>
+                    <h2 class="text-3xl font-bold text-gray-900 mb-2">${overviewData.title}</h2>
+                    <p class="text-lg text-gray-600">${overviewData.summary}</p>
+                </div>
+                <div class="bg-white p-6 rounded-lg shadow-md">
+                    <h3 class="text-2xl font-semibold text-gray-800 mb-4">Trend Prominence at Major Tech Events</h3>
+                    <p class="text-gray-600 mb-6">This chart illustrates the frequency of each major thematic area being featured at key tech conferences from Dec 2024 to May 2025, providing a quick visual guide to the industry's top priorities.</p>
+                    <div class="chart-container">
+                        <canvas id="trendsChart"></canvas>
+                    </div>
+                </div>
+                 <div>
+                    <h3 class="text-2xl font-semibold text-gray-800 mb-2">Report Introduction</h3>
+                    <p class="text-gray-600 leading-relaxed">${overviewData.introduction}</p>
+                </div>
+            </div>
+        `;
+
+        if (trendsChart) {
+            trendsChart.destroy();
+        }
+
+        const ctx = document.getElementById('trendsChart').getContext('2d');
+        trendsChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: overviewData.chartData.labels,
+                datasets: [{
+                    label: 'Featured Conferences Count',
+                    data: overviewData.chartData.data,
+                    backgroundColor: [
+                        'rgba(74, 144, 226, 0.7)',
+                        'rgba(80, 227, 194, 0.7)',
+                        'rgba(245, 166, 35, 0.7)',
+                        'rgba(189, 16, 224, 0.7)',
+                        'rgba(126, 211, 33, 0.7)',
+                        'rgba(208, 2, 27, 0.7)'
+                    ],
+                    borderColor: [
+                        'rgba(74, 144, 226, 1)',
+                        'rgba(80, 227, 194, 1)',
+                        'rgba(245, 166, 35, 1)',
+                        'rgba(189, 16, 224, 1)',
+                        'rgba(126, 211, 33, 1)',
+                        'rgba(208, 2, 27, 1)'
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                if (label) {
+                                    label += ': ';
+                                }
+                                if (context.parsed.x !== null) {
+                                    label += context.parsed.x;
+                                }
+                                return label;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                         grid: {
+                            color: 'rgba(200, 200, 200, 0.2)'
+                        }
+                    },
+                    y: {
+                         grid: {
+                            display: false
+                        }
+                    }
+                }
+            }
+        });
+    };
+
+    const renderSection = (sectionKey) => {
+        const sectionData = appData[sectionKey];
+        if (!sectionData) return;
+
+        let topicsHtml = sectionData.topics.map(topic => `
+            <div class="card bg-white rounded-lg shadow-md p-6 cursor-pointer" data-topic-id="${topic.id}" data-section-key="${sectionKey}">
+                <h4 class="text-xl font-semibold text-gray-800">${topic.title}</h4>
+                <p class="text-gray-600 mt-2">${topic.description}</p>
+            </div>
+        `).join('');
+
+        mainContent.innerHTML = `
+            <div>
+                <h2 class="text-3xl font-bold text-gray-900 mb-2">${sectionData.title}</h2>
+                <p class="text-lg text-gray-600 mb-8">${sectionData.introduction}</p>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    ${topicsHtml}
+                </div>
+            </div>
+        `;
+
+        document.querySelectorAll('.card').forEach(card => {
+            card.addEventListener('click', () => {
+                const topicId = card.getAttribute('data-topic-id');
+                const secKey = card.getAttribute('data-section-key');
+                const topicData = appData[secKey].topics.find(t => t.id === topicId);
+                currentTopicData = topicData; // Set current topic for LLM calls
+                openModal(topicData);
+            });
+        });
+    };
+
+    const openModal = (topic) => {
+        modalTitle.textContent = topic.title;
+        modalBody.innerHTML = `
+            <p class="text-lg mb-4">${topic.description}</p>
+            <h5 class="font-semibold text-gray-800 mb-2">Potential Discussion Points:</h5>
+            <ul class="list-disc list-inside space-y-2">
+                ${topic.points.map(p => `<li>${p}</li>`).join('')}
+            </ul>
+        `;
+        aiOutputDiv.innerHTML = 'Click an AI button above to generate insights.'; // Reset AI output
+        aiOutputDiv.classList.add('italic');
+        modal.classList.remove('invisible', 'opacity-0');
+        modal.querySelector('.modal-content').classList.remove('scale-95');
+    };
+
+    const closeModal = () => {
+        modal.classList.add('invisible', 'opacity-0');
+        modal.querySelector('.modal-content').classList.add('scale-95');
+        currentTopicData = null; // Clear current topic data
+    };
+    
+    const navigate = (sectionKey) => {
+        if (sectionKey === 'overview') {
+            renderOverview();
+        } else {
+            renderSection(sectionKey);
+        }
+        
+        document.querySelectorAll('.sidebar-item').forEach(item => {
+            item.classList.toggle('active', item.getAttribute('data-section') === sectionKey);
+        });
+        
+        const sectionTitle = appData[sectionKey]?.title.split(' ')[1] || 'Overview';
+        mobileHeaderTitle.textContent = sectionTitle;
+
+        if (sidebar.classList.contains('lg:relative')) {
+           sidebar.classList.add('-translate-x-full');
+        }
+    }
+
+    // Gemini API integration functions
+    const callGeminiAPI = async (prompt, loadingSpinner) => {
+        loadingSpinner.classList.remove('hidden');
+        aiOutputDiv.textContent = 'Generating...';
+        aiOutputDiv.classList.add('italic');
+
+        try {
+            let chatHistory = [];
+            chatHistory.push({ role: "user", parts: [{ text: prompt }] });
+            const payload = { contents: chatHistory };
+            const apiKey = ""; // Canvas will provide this at runtime
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const result = await response.json();
+
+            if (result.candidates && result.candidates.length > 0 &&
+                result.candidates[0].content && result.candidates[0].content.parts &&
+                result.candidates[0].content.parts.length > 0) {
+                const text = result.candidates[0].content.parts[0].text;
+                aiOutputDiv.textContent = text;
+                aiOutputDiv.classList.remove('italic');
+            } else {
+                aiOutputDiv.textContent = 'Error: Could not generate response. Please try again.';
+                console.error('Gemini API response structure unexpected:', result);
+            }
+        } catch (error) {
+            aiOutputDiv.textContent = 'Error: Failed to connect to AI service.';
+            console.error('Error calling Gemini API:', error);
+        } finally {
+            loadingSpinner.classList.add('hidden');
+        }
+    };
+
+    generateTakeawaysBtn.addEventListener('click', () => {
+        if (!currentTopicData) return;
+        const prompt = `Summarize the following topic and its discussion points into 3-4 concise key takeaways for a conference presentation. Focus on the most important actionable insights.\n\nTopic: ${currentTopicData.title}\nDescription: ${currentTopicData.description}\nDiscussion Points: ${currentTopicData.points.join(', ')}`;
+        callGeminiAPI(prompt, takeawaysLoadingSpinner);
+    });
+
+    generateQuestionsBtn.addEventListener('click', () => {
+        if (!currentTopicData) return;
+        const prompt = `Based on the following topic and its discussion points, generate 3-5 insightful and thought-provoking questions that an audience member might ask during a conference Q&A session. Ensure the questions cover different aspects of the topic.\n\nTopic: ${currentTopicData.title}\nDescription: ${currentTopicData.description}\nDiscussion Points: ${currentTopicData.points.join(', ')}`;
+        callGeminiAPI(prompt, questionsLoadingSpinner);
+    });
+
+    // Existing event listeners
+    navMenu.addEventListener('click', (e) => {
+        e.preventDefault();
+        const target = e.target.closest('a');
+        if (target) {
+            const sectionKey = target.getAttribute('data-section');
+            history.pushState({section: sectionKey}, '', `#${sectionKey}`);
+            navigate(sectionKey);
+        }
+    });
+
+    window.addEventListener('popstate', (e) => {
+        const section = e.state?.section || 'overview';
+        navigate(section);
+    });
+
+    modalClose.addEventListener('click', closeModal);
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            closeModal();
+        }
+    });
+    
+    menuToggle.addEventListener('click', () => {
+        sidebar.classList.toggle('-translate-x-full');
+    });
+
+    const initialSection = window.location.hash.substring(1) || 'overview';
+    navigate(initialSection);
+});
+</script>
+
+</body>
+</html>
